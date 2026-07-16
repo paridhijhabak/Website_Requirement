@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Responses — Website Design Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#EDEEEB; --card:#fff; --ink:#14181F; --ink-soft:#4A5058;
+    --line:#D6D8D1; --accent:#FF5A36; --accent-ink:#7A2A16; --done:#2F6F4E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--canvas);color:var(--ink);font-family:'Inter',sans-serif;}
+  .wrap{max-width:1200px;margin:0 auto;padding:40px 24px 100px;}
+  h1{font-family:'Fraunces',serif;font-weight:600;font-size:30px;margin:0 0 4px;}
+  .sub{color:var(--ink-soft);font-size:14px;margin:0 0 28px;}
+
+  #gate{max-width:380px;margin:120px auto;text-align:center;}
+  #gate input{
+    width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
+    font-size:15px;margin-bottom:12px;background:#FAFAF8;
+  }
+  #gate button{
+    width:100%;padding:12px;background:var(--ink);color:#fff;border:none;border-radius:10px;
+    font-weight:600;cursor:pointer;font-size:15px;
+  }
+  #gate p.err{color:var(--accent);font-size:13px;margin-top:10px;}
+
+  #dashboard{display:none;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+  .count-pill{
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent-ink);
+    background:#FFF3EF;border:1px solid var(--accent);border-radius:20px;padding:5px 14px;
+  }
+  button.refresh{
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;
+    background:var(--card);border:1px solid var(--line);border-radius:8px;cursor:pointer;
+  }
+
+  .cards{display:flex;flex-direction:column;gap:14px;}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 24px;
+  }
+  .card-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:12px;}
+  .card-head h3{font-family:'Fraunces',serif;font-size:19px;margin:0;}
+  .card-head time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(240px,1fr));gap:14px;}
+  .field{font-size:13.5px;}
+  .field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--accent-ink);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+  .field div{color:var(--ink);line-height:1.4;word-break:break-word;}
+  .field div:empty::after{content:'—';color:#B8BBB2;}
+  .attachments{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+  .attachments a{
+    font-family:'JetBrains Mono',monospace;font-size:11px;background:#FAFAF8;border:1px solid var(--line);
+    border-radius:6px;padding:4px 9px;text-decoration:none;color:var(--accent-ink);
+  }
+  .empty{text-align:center;padding:80px 20px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <h1>Responses</h1>
+  <p class="sub">Enter the admin password to view submissions.</p>
+  <input type="password" id="pwInput" placeholder="Admin password">
+  <button id="unlockBtn">View responses</button>
+  <p class="err" id="gateErr"></p>
+</div>
+
+<div class="wrap" id="dashboard">
+  <h1>Website Design Briefs</h1>
+  <p class="sub">All submissions from the intake form, most recent first.</p>
+  <div class="toolbar">
+    <span class="count-pill" id="countPill">0 responses</span>
+    <button class="refresh" id="refreshBtn">Refresh</button>
+  </div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<script>
+(function(){
+  const gate = document.getElementById('gate');
+  const dashboard = document.getElementById('dashboard');
+  const pwInput = document.getElementById('pwInput');
+  const unlockBtn = document.getElementById('unlockBtn');
+  const gateErr = document.getElementById('gateErr');
+  const cardsEl = document.getElementById('cards');
+  const countPill = document.getElementById('countPill');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  let password = sessionStorage.getItem('adminPassword') || '';
+
+  const FIELD_LABELS = {
+    fullName: 'Full name',
+    companyName: 'Company / business',
+    businessDescription: 'What the business does',
+    existingWebsite: 'Existing website',
+    targetAudience: 'Target audience',
+    competitors: 'Competitors',
+    mainPurpose: 'Main purpose',
+    mainPurposeOther: 'Main purpose (other)',
+    pagesNeeded: 'Pages needed',
+    pagesNeededOther: 'Pages needed (other)',
+    stylePreference: 'Style preference',
+    stylePreferenceOther: 'Style preference (other)',
+    likedWebsites: 'Liked websites',
+    hasLogoColors: 'Logo / brand colors',
+    stylesToAvoid: 'Colors/styles to avoid',
+    contentReady: 'Content readiness',
+    featuresNeeded: 'Features needed',
+    featuresNeededOther: 'Features needed (other)',
+    additionalNotes: 'Additional notes',
+  };
+
+  async function tryLoad(pw){
+    const res = await fetch('/api/responses', { headers: { 'X-Admin-Password': pw } });
+    if (res.status === 401) throw new Error('Incorrect password');
+    if (!res.ok) throw new Error('Could not load responses');
+    return res.json();
+  }
+
+  function fmtValue(v){
+    if (Array.isArray(v)) return v.join(', ');
+    return v || '';
+  }
+
+  function render(responses){
+    countPill.textContent = responses.length + (responses.length === 1 ? ' response' : ' responses');
+    if (responses.length === 0){
+      cardsEl.innerHTML = '<div class="empty">No submissions yet.</div>';
+      return;
+    }
+    cardsEl.innerHTML = responses.map(r => {
+      const fields = Object.keys(FIELD_LABELS).map(key => {
+        if (!(key in r)) return '';
+        return `<div class="field"><label>${FIELD_LABELS[key]}</label><div>${escapeHtml(fmtValue(r[key]))}</div></div>`;
+      }).join('');
+      const attachments = (r.attachments && r.attachments.length)
+        ? `<div class="field" style="grid-column:1/-1"><label>Attachments</label><div class="attachments">${
+            r.attachments.map(a => `<a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.name)}</a>`).join('')
+          }</div></div>`
+        : '';
+      return `<div class="card">
+        <div class="card-head">
+          <h3>${escapeHtml(r.fullName || 'Untitled')}</h3>
+          <time>${new Date(r.submittedAt).toLocaleString()}</time>
+        </div>
+        <div class="grid">${fields}${attachments}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  async function unlock(pw){
+    try {
+      const data = await tryLoad(pw);
+      password = pw;
+      sessionStorage.setItem('adminPassword', pw);
+      gate.style.display = 'none';
+      dashboard.style.display = 'block';
+      render(data.responses);
+    } catch(err){
+      gateErr.textContent = err.message;
+    }
+  }
+
+  unlockBtn.addEventListener('click', () => unlock(pwInput.value));
+  pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') unlock(pwInput.value); });
+
+  refreshBtn.addEventListener('click', async () => {
+    try {
+      const data = await tryLoad(password);
+      render(data.responses);
+    } catch(err){
+      alert(err.message);
+    }
+  });
+
+  if (password) unlock(password);
+})();
+</script>
+</body>
+</html>
