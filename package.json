@@ -1,0 +1,10 @@
+{
+  "name": "website-design-requirements-form",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/kv": "^1.0.1",
+    "@vercel/blob": "^0.23.4"
+  }
+}
