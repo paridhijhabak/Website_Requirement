@@ -5,6 +5,6 @@
   "type": "module",
   "dependencies": {
     "ioredis": "^5.4.1",
-    "@vercel/blob": "^0.23.4"
+    "@vercel/blob": "^2.6.1"
   }
 }
